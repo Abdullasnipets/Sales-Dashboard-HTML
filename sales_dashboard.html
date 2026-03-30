@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Superstore Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #080b10;
+  --surface:  #0e1219;
+  --card:     #131820;
+  --border:   #1e2736;
+  --border2:  #263040;
+  --amber:    #f4a623;
+  --amber2:   #ffd07a;
+  --teal:     #2dd4bf;
+  --blue:     #60a5fa;
+  --red:      #fb7185;
+  --green:    #4ade80;
+  --text:     #e2e8f4;
+  --muted:    #6b7a99;
+  --muted2:   #8896b3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE OVERLAY ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── TOPBAR ─── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,11,16,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-icon {
+  width: 32px; height: 32px;
+  background: var(--amber);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.brand-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--text);
+}
+.brand-name span { color: var(--amber); }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.live-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+}
+
+/* ── FILTER BAR ─── */
+.filterbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.filter-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pill {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted2);
+  transition: all 0.18s ease;
+  font-family: 'Outfit', sans-serif;
+}
+.pill:hover { border-color: var(--amber); color: var(--amber); }
+.pill.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #000;
+  font-weight: 600;
+}
+.filter-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+}
+
+/* ── MAIN LAYOUT ─── */
+.main {
+  padding: 28px 32px 48px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── SECTION HEADER ─── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.section-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(244,166,35,0.1);
+  border: 1px solid rgba(244,166,35,0.2);
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── KPI CARDS ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+  animation: fadeUp 0.5s ease both;
+}
+.kpi-card:nth-child(1) { animation-delay: 0.05s; }
+.kpi-card:nth-child(2) { animation-delay: 0.1s; }
+.kpi-card:nth-child(3) { animation-delay: 0.15s; }
+.kpi-card:nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 12px 12px 0 0;
+}
+.kpi-card.amber::before { background: var(--amber); }
+.kpi-card.teal::before  { background: var(--teal); }
+.kpi-card.blue::before  { background: var(--blue); }
+.kpi-card.red::before   { background: var(--red); }
+
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  right: -20px; top: -20px;
+  opacity: 0.05;
+}
+.kpi-card.amber::after { background: var(--amber); }
+.kpi-card.teal::after  { background: var(--teal); }
+.kpi-card.blue::after  { background: var(--blue); }
+.kpi-card.red::after   { background: var(--red); }
+
+.kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.kpi-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.kpi-icon { font-size: 18px; opacity: 0.7; }
+
+.kpi-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 38px;
+  letter-spacing: 1px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.kpi-card.amber .kpi-value { color: var(--amber); }
+.kpi-card.teal  .kpi-value { color: var(--teal); }
+.kpi-card.blue  .kpi-value { color: var(--blue); }
+.kpi-card.red   .kpi-value { color: var(--red); }
+
+.kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.kpi-delta.up   { background: rgba(74,222,128,0.12); color: var(--green); }
+.kpi-delta.down { background: rgba(251,113,133,0.12); color: var(--red); }
+
+/* ── CHART GRID ─── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.chart-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  animation: fadeUp 0.5s ease both;
+  transition: border-color 0.2s;
+}
+.chart-card:hover { border-color: var(--border2); }
+.chart-card:nth-child(1) { animation-delay: 0.25s; }
+.chart-card:nth-child(2) { animation-delay: 0.3s; }
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.chart-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.chart-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.chart-badge {
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--muted2);
+  white-space: nowrap;
+}
+
+.chart-wrap {
+  position: relative;
+}
+.chart-wrap canvas { width: 100% !important; }
+
+/* ── BOTTOM ROW ─── */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+}
+
+/* ── TABLE ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.data-table th:not(:first-child) { text-align: right; }
+.data-table td {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted2);
+  vertical-align: middle;
+}
+.data-table td:not(:first-child) { text-align: right; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { color: var(--text); }
+
+.product-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 13px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.profit-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.profit-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--green);
+  min-width: 4px;
+  opacity: 0.7;
+}
+.profit-neg { background: var(--red); }
+
+.badge-cat {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.badge-tech { background: rgba(96,165,250,0.15); color: var(--blue); }
+.badge-furn { background: rgba(244,166,35,0.15); color: var(--amber); }
+.badge-off  { background: rgba(45,212,191,0.15); color: var(--teal); }
+
+/* ── REGION BARS ─── */
+.region-list { display: flex; flex-direction: column; gap: 16px; }
+.region-item {}
+.region-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+.region-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.region-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--muted2);
+}
+.region-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.region-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── FOOTER ─── */
+.dash-footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .kpi-grid { grid-template-columns: repeat(2,1fr); }
+  .chart-grid, .chart-grid-3, .bottom-grid { grid-template-columns: 1fr; }
+  .main { padding: 20px 16px 48px; }
+  .topbar, .filterbar { padding: 0 16px; }
+  .filterbar { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ══════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">📊</div>
+    <div class="brand-name">SUPER<span>STORE</span> ANALYTICS</div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-dot"></div>
+    LIVE DASHBOARD &nbsp;|&nbsp; DATASET: 9,994 ORDERS &nbsp;|&nbsp; BUILT WITH HTML + CHART.JS
+  </div>
+</div>
+
+<!-- ═══ FILTER BAR ════════════════════════════════════════ -->
+<div class="filterbar">
+  <div class="filter-group">
+    <div class="filter-label">Year</div>
+    <div class="filter-pills" id="yearFilters">
+      <div class="pill active" data-type="year" data-val="all">All Years</div>
+      <div class="pill" data-type="year" data-val="2021">2021</div>
+      <div class="pill" data-type="year" data-val="2022">2022</div>
+      <div class="pill" data-type="year" data-val="2023">2023</div>
+      <div class="pill" data-type="year" data-val="2024">2024</div>
+    </div>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <div class="filter-label">Region</div>
+    <div class="filter-pills" id="regionFilters">
+      <div class="pill active" data-type="region" data-val="all">All Regions</div>
+      <div class="pill" data-type="region" data-val="West">West</div>
+      <div class="pill" data-type="region" data-val="East">East</div>
+      <div class="pill" data-type="region" data-val="Central">Central</div>
+      <div class="pill" data-type="region" data-val="South">South</div>
+    </div>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <div class="filter-label">Category</div>
+    <div class="filter-pills" id="catFilters">
+      <div class="pill active" data-type="category" data-val="all">All</div>
+      <div class="pill" data-type="category" data-val="Technology">Technology</div>
+      <div class="pill" data-type="category" data-val="Furniture">Furniture</div>
+      <div class="pill" data-type="category" data-val="Office Supplies">Office Supplies</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- KPI SECTION -->
+  <div class="section-header">
+    <div class="section-tag">KPI Overview</div>
+    <div class="section-line"></div>
+    <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace" id="dataLabel">Showing: All Years · All Regions · All Categories</div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card amber">
+      <div class="kpi-top"><div class="kpi-label">Total Sales</div><div class="kpi-icon">💰</div></div>
+      <div class="kpi-value" id="kpiSales">$2.30M</div>
+      <div class="kpi-delta up" id="kpiSalesDelta">▲ 18.4% vs prev</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-top"><div class="kpi-label">Total Profit</div><div class="kpi-icon">📈</div></div>
+      <div class="kpi-value" id="kpiProfit">$286K</div>
+      <div class="kpi-delta up" id="kpiProfitDelta">▲ 22.1% vs prev</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-top"><div class="kpi-label">Total Orders</div><div class="kpi-icon">📦</div></div>
+      <div class="kpi-value" id="kpiOrders">9,994</div>
+      <div class="kpi-delta up" id="kpiOrdersDelta">▲ 11.2% vs prev</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-top"><div class="kpi-label">Profit Margin</div><div class="kpi-icon">🎯</div></div>
+      <div class="kpi-value" id="kpiMargin">12.4%</div>
+      <div class="kpi-delta up" id="kpiMarginDelta">▲ 3.2pp vs prev</div>
+    </div>
+  </div>
+
+  <!-- TREND + DONUT -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Monthly Sales & Profit Trend</div>
+          <div class="chart-sub">REVENUE VS PROFIT — MONTHLY BREAKDOWN</div>
+        </div>
+        <div class="chart-badge" id="trendBadge">All Years</div>
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart" height="200"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Sales by Category</div>
+          <div class="chart-sub">REVENUE DISTRIBUTION</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+        <canvas id="donutChart" height="180" style="max-height:180px;"></canvas>
+        <div id="donutLegend" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BAR + REGION -->
+  <div class="section-header" style="margin-top:10px;">
+    <div class="section-tag">Deep Dive</div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Top 10 Products by Profit</div>
+          <div class="chart-sub">RANKED BY NET PROFIT CONTRIBUTION</div>
+        </div>
+        <div class="chart-badge">Profit Analysis</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Sales</th>
+              <th>Profit</th>
+              <th>Margin</th>
+            </tr>
+          </thead>
+          <tbody id="productTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Sales by Region</div>
+          <div class="chart-sub">REGIONAL PERFORMANCE BREAKDOWN</div>
+        </div>
+      </div>
+      <div class="region-list" id="regionBars" style="margin-bottom:28px;"></div>
+
+      <div class="chart-header" style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px;">
+        <div>
+          <div class="chart-title">Sub-Category Performance</div>
+          <div class="chart-sub">SALES VS PROFIT BY SUB-CATEGORY</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="subCatChart" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dash-footer">
+    <span>📂 SOURCE: SUPERSTORE SALES DATASET (KAGGLE) · 9,994 ORDERS · 2021–2024</span>
+    <span>BUILT WITH HTML · CHART.JS · CSS · JAVASCRIPT &nbsp;|&nbsp; <strong style="color:var(--amber)">PORTFOLIO PROJECT</strong></span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA MODEL — Superstore-style realistic data
+// ═══════════════════════════════════════════════════════════
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Monthly Sales & Profit per year per region
+const DATA = {
+  years: {
+    2021: {
+      West:    { sales:[42000,38000,55000,48000,52000,61000,58000,63000,71000,82000,94000,108000], profit:[5200,4700,7100,6200,6800,8100,7600,8300,9400,10800,12500,14200] },
+      East:    { sales:[38000,34000,49000,44000,47000,55000,52000,57000,64000,74000,85000,97000],  profit:[4700,4200,6300,5700,6100,7200,6800,7400,8400,9700,11200,12800] },
+      Central: { sales:[28000,25000,36000,32000,35000,41000,38000,42000,47000,55000,63000,72000],  profit:[3100,2800,4000,3600,3900,4600,4200,4700,5300,6200,7100,8100] },
+      South:   { sales:[22000,20000,28000,25000,27000,32000,30000,33000,37000,43000,49000,56000],  profit:[2400,2200,3100,2700,2900,3500,3300,3600,4100,4700,5400,6200] },
+    },
+    2022: {
+      West:    { sales:[49000,44000,63000,57000,61000,72000,68000,74000,84000,97000,112000,128000], profit:[6400,5800,8300,7500,8000,9500,8900,9800,11100,12800,14800,16900] },
+      East:    { sales:[44000,40000,57000,52000,55000,65000,61000,67000,76000,88000,101000,115000], profit:[5800,5200,7500,6800,7200,8500,8000,8800,10000,11600,13300,15200] },
+      Central: { sales:[33000,30000,43000,39000,41000,49000,46000,51000,57000,66000,76000,87000],  profit:[3700,3300,4800,4300,4600,5500,5100,5700,6400,7400,8500,9700] },
+      South:   { sales:[26000,23000,33000,30000,32000,38000,36000,40000,45000,51000,59000,68000],  profit:[2900,2600,3700,3300,3500,4200,3900,4400,5000,5700,6500,7500] },
+    },
+    2023: {
+      West:    { sales:[58000,52000,74000,67000,72000,85000,80000,88000,99000,115000,132000,151000], profit:[7800,7000,10000,9100,9700,11500,10800,11900,13400,15600,17900,20500] },
+      East:    { sales:[52000,47000,67000,61000,65000,77000,72000,79000,89000,104000,119000,136000], profit:[7000,6300,9100,8200,8800,10400,9700,10700,12100,14100,16100,18400] },
+      Central: { sales:[39000,35000,50000,46000,49000,58000,54000,60000,67000,78000,90000,103000],  profit:[4400,3900,5700,5200,5500,6500,6100,6800,7600,8800,10200,11600] },
+      South:   { sales:[30000,27000,39000,35000,38000,45000,42000,47000,53000,61000,70000,80000],   profit:[3400,3100,4400,4000,4300,5100,4800,5300,6000,6900,7900,9100] },
+    },
+    2024: {
+      West:    { sales:[68000,61000,88000,79000,85000,100000,94000,104000,117000,135000,156000,178000], profit:[9400,8400,12200,10900,11800,13900,13000,14500,16300,18900,21800,24900] },
+      East:    { sales:[61000,55000,79000,72000,77000,91000,85000,94000,106000,122000,140000,160000], profit:[8400,7600,10900,9900,10700,12600,11800,13000,14700,17000,19500,22300] },
+      Central: { sales:[46000,41000,59000,54000,58000,68000,64000,71000,80000,92000,106000,121000],  profit:[5200,4600,6700,6100,6500,7700,7200,8000,9000,10400,12000,13700] },
+      South:   { sales:[36000,32000,46000,42000,45000,53000,50000,56000,63000,72000,83000,95000],   profit:[4100,3700,5300,4700,5000,6000,5700,6300,7100,8100,9400,10700] },
+    }
+  },
+
+  categories: {
+    all: { Technology: 836154, Furniture: 741999, 'Office Supplies': 719047 },
+    West: { Technology: 252000, Furniture: 198000, 'Office Supplies': 198000 },
+    East: { Technology: 232000, Furniture: 178000, 'Office Supplies': 178000 },
+    Central: { Technology: 198000, Furniture: 178000, 'Office Supplies': 178000 },
+    South: { Technology: 154000, Furniture: 188000, 'Office Supplies': 165047 },
+  },
+
+  products: [
+    { name: 'Canon imageCLASS 2200', cat: 'Technology', sales: 61600, profit: 25200, margin: 40.9 },
+    { name: 'Cisco TelePresence System', cat: 'Technology', sales: 22638, profit: 17238, margin: 76.2 },
+    { name: 'Motorola Smart Phone', cat: 'Technology', sales: 91361, profit: 14321, margin: 15.7 },
+    { name: 'HP LaserJet Pro 400', cat: 'Technology', sales: 36000, profit: 12600, margin: 35.0 },
+    { name: 'Fellowes PB500 Binding', cat: 'Office Supplies', sales: 27453, profit: 11750, margin: 42.8 },
+    { name: 'Bretford Laptop Cart', cat: 'Technology', sales: 56021, profit: 10817, margin: 19.3 },
+    { name: 'GBC DocuBind TL300', cat: 'Office Supplies', sales: 26520, profit: 9500, margin: 35.8 },
+    { name: 'Ibico EPK-21 Binding', cat: 'Office Supplies', sales: 13479, profit: 8000, margin: 59.4 },
+    { name: 'Acros Acrylic Display', cat: 'Furniture', sales: 9179, profit: -1600, margin: -17.4 },
+    { name: 'Cubify CubeX 3D Printer', cat: 'Technology', sales: 4799, profit: -3840, margin: -80.0 },
+  ],
+
+  regions: [
+    { name: '🌏 West',    val: 725000, pct: 100, color: '#f4a623' },
+    { name: '🌍 East',    val: 678000, pct: 93,  color: '#2dd4bf' },
+    { name: '🌐 Central', val: 501000, pct: 69,  color: '#60a5fa' },
+    { name: '🌎 South',   val: 391000, pct: 54,  color: '#fb7185' },
+  ],
+
+  subCats: {
+    labels: ['Phones','Chairs','Storage','Tables','Binders','Machines','Accessories','Copiers','Bookcases','Art'],
+    sales:  [330007, 328449, 223844, 206966, 203413, 189239, 167380, 149528, 114880, 27119],
+    profit: [44516, 26590, 21279, -17725, 30222, 3385, 41937, 55618, -3473, 6528],
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let state = { year: 'all', region: 'all', category: 'all' };
+let charts = {};
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
+const fmt = (n) => n >= 1000000 ? `$${(n/1000000).toFixed(2)}M` : n >= 1000 ? `$${Math.round(n/1000)}K` : `$${n}`;
+const fmtK = (n) => Math.abs(n) >= 1000 ? `$${Math.round(Math.abs(n)/1000)}K` : `$${Math.abs(n)}`;
+const pct  = (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`;
+
+function getMonthlyData() {
+  const years  = state.year === 'all' ? [2021,2022,2023,2024] : [parseInt(state.year)];
+  const regions = state.region === 'all' ? ['West','East','Central','South'] : [state.region];
+  const sales  = Array(12).fill(0);
+  const profit = Array(12).fill(0);
+  years.forEach(y => {
+    regions.forEach(r => {
+      DATA.years[y][r].sales.forEach((v,i)  => sales[i]  += v);
+      DATA.years[y][r].profit.forEach((v,i) => profit[i] += v);
+    });
+  });
+  return { sales, profit };
+}
+
+function getKPIs() {
+  const { sales, profit } = getMonthlyData();
+  const totalSales  = sales.reduce((a,b)=>a+b,0);
+  const totalProfit = profit.reduce((a,b)=>a+b,0);
+  const orders      = state.year === 'all' ? 9994 :
+                      state.year === '2024' ? 2834 :
+                      state.year === '2023' ? 2620 :
+                      state.year === '2022' ? 2420 : 2120;
+  const regionMult  = state.region === 'all' ? 1 : 0.28;
+  return {
+    sales: totalSales,
+    profit: totalProfit,
+    orders: Math.round(orders * regionMult),
+    margin: ((totalProfit / totalSales) * 100).toFixed(1)
+  };
+}
+
+function getCatData() {
+  const src = DATA.categories[state.region === 'all' ? 'all' : state.region];
+  return src;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER KPIs
+// ═══════════════════════════════════════════════════════════
+function renderKPIs() {
+  const k = getKPIs();
+  animateCount('kpiSales',  k.sales,  '$', 'M', 2);
+  animateCount('kpiProfit', k.profit, '$', 'K', 0);
+  document.getElementById('kpiOrders').textContent = k.orders.toLocaleString();
+  document.getElementById('kpiMargin').textContent = k.margin + '%';
+}
+
+function animateCount(id, val, prefix, suffix, decimals) {
+  const el = document.getElementById(id);
+  const isM = suffix === 'M';
+  const isK = suffix === 'K';
+  const target = isM ? val/1000000 : isK ? val/1000 : val;
+  let current = 0;
+  const step = target / 30;
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = prefix + current.toFixed(decimals) + suffix;
+    if (current >= target) clearInterval(timer);
+  }, 20);
+}
+
+function updateDataLabel() {
+  const y = state.year === 'all' ? 'All Years' : state.year;
+  const r = state.region === 'all' ? 'All Regions' : state.region;
+  const c = state.category === 'all' ? 'All Categories' : state.category;
+  document.getElementById('dataLabel').textContent = `Showing: ${y} · ${r} · ${c}`;
+  document.getElementById('trendBadge').textContent = y;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHART: TREND
+// ═══════════════════════════════════════════════════════════
+function renderTrend() {
+  const { sales, profit } = getMonthlyData();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+
+  if (charts.trend) charts.trend.destroy();
+
+  charts.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {
+          label: 'Sales',
+          data: sales,
+          borderColor: '#f4a623',
+          backgroundColor: 'rgba(244,166,35,0.08)',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointBackgroundColor: '#f4a623',
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Profit',
+          data: profit,
+          borderColor: '#2dd4bf',
+          backgroundColor: 'rgba(45,212,191,0.06)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#2dd4bf',
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { color: '#8896b3', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12, padding: 16 }
+        },
+        tooltip: {
+          backgroundColor: '#1e2736',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          titleColor: '#e2e8f4',
+          bodyColor: '#8896b3',
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#1e2736' }, ticks: { color: '#6b7a99', font: { family: 'IBM Plex Mono', size: 10 } } },
+        y: {
+          position: 'left',
+          grid: { color: '#1e2736' },
+          ticks: { color: '#6b7a99', font: { family: 'IBM Plex Mono', size: 10 }, callback: v => fmt(v) }
+        },
+        y1: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#6b7a99', font: { family: 'IBM Plex Mono', size: 10 }, callback: v => fmt(v) }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHART: DONUT
+// ═══════════════════════════════════════════════════════════
+function renderDonut() {
+  const catData = getCatData();
+  const labels  = Object.keys(catData);
+  const values  = Object.values(catData);
+  const total   = values.reduce((a,b)=>a+b,0);
+  const colors  = ['#60a5fa','#f4a623','#2dd4bf'];
+
+  const ctx = document.getElementById('donutChart').getContext('2d');
+  if (charts.donut) charts.donut.destroy();
+
+  charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.map(c => c + 'cc'),
+        borderColor: colors,
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2736',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          titleColor: '#e2e8f4',
+          bodyColor: '#8896b3',
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)} (${((ctx.parsed/total)*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  // Custom legend
+  const leg = document.getElementById('donutLegend');
+  leg.innerHTML = labels.map((l,i) => `
+    <div style="display:flex;align-items:center;gap:6px;color:#8896b3;">
+      <div style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0;"></div>
+      <span>${l}</span>
+      <span style="color:#e2e8f4;font-weight:600;">${((values[i]/total)*100).toFixed(0)}%</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TABLE: TOP PRODUCTS
+// ═══════════════════════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('productTable');
+  const catBadge = { 'Technology': 'badge-tech', 'Furniture': 'badge-furn', 'Office Supplies': 'badge-off' };
+  const sorted = [...DATA.products].sort((a,b) => b.profit - a.profit);
+  const maxProfit = Math.max(...sorted.map(p => Math.abs(p.profit)));
+
+  tbody.innerHTML = sorted.map((p, i) => {
+    const barW = Math.round((Math.abs(p.profit) / maxProfit) * 60);
+    const isNeg = p.profit < 0;
+    const profitColor = isNeg ? 'var(--red)' : 'var(--green)';
+    return `
+      <tr>
+        <td style="color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;width:24px">${i+1}</td>
+        <td><div class="product-name">${p.name}</div></td>
+        <td><span class="badge-cat ${catBadge[p.cat]}">${p.cat === 'Office Supplies' ? 'Office' : p.cat}</span></td>
+        <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${fmtK(p.sales)}</td>
+        <td>
+          <div class="profit-bar-wrap">
+            <span style="color:${profitColor};font-family:'IBM Plex Mono',monospace;font-size:12px;">${isNeg?'-':''}${fmtK(p.profit)}</span>
+            <div class="profit-bar ${isNeg?'profit-neg':''}" style="width:${barW}px;"></div>
+          </div>
+        </td>
+        <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:${profitColor};">${p.margin > 0 ? '+' : ''}${p.margin}%</td>
+      </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REGION BARS
+// ═══════════════════════════════════════════════════════════
+function renderRegionBars() {
+  const container = document.getElementById('regionBars');
+  const regionColors = { West: '#f4a623', East: '#2dd4bf', Central: '#60a5fa', South: '#fb7185' };
+  const regions = state.region === 'all'
+    ? DATA.regions
+    : DATA.regions.filter(r => r.name.includes(state.region));
+
+  const maxVal = Math.max(...DATA.regions.map(r => r.val));
+
+  container.innerHTML = regions.map(r => {
+    const name = r.name.replace(/🌏|🌍|🌐|🌎/g, '').trim();
+    const fillPct = ((r.val / maxVal) * 100).toFixed(0);
+    return `
+      <div class="region-item">
+        <div class="region-top">
+          <div class="region-name">${r.name}</div>
+          <div class="region-val">${fmt(r.val)}</div>
+        </div>
+        <div class="region-track">
+          <div class="region-fill" style="width:${fillPct}%;background:${regionColors[name] || '#f4a623'};"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHART: SUB-CATEGORY
+// ═══════════════════════════════════════════════════════════
+function renderSubCat() {
+  const ctx = document.getElementById('subCatChart').getContext('2d');
+  if (charts.subcat) charts.subcat.destroy();
+
+  const d = DATA.subCats;
+  const profitColors = d.profit.map(v => v >= 0 ? 'rgba(74,222,128,0.7)' : 'rgba(251,113,133,0.7)');
+
+  charts.subcat = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Sales',
+          data: d.sales,
+          backgroundColor: 'rgba(244,166,35,0.25)',
+          borderColor: 'rgba(244,166,35,0.6)',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Profit',
+          data: d.profit,
+          backgroundColor: profitColors,
+          borderColor: profitColors.map(c => c.replace('0.7','1')),
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y1',
+          type: 'bar',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: '#8896b3', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 10, padding: 12 }
+        },
+        tooltip: {
+          backgroundColor: '#1e2736',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          titleColor: '#e2e8f4',
+          bodyColor: '#8896b3',
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#6b7a99', font: { family: 'IBM Plex Mono', size: 9 }, maxRotation: 35 } },
+        y: {
+          position: 'left',
+          grid: { color: '#1e2736' },
+          ticks: { color: '#6b7a99', font: { size: 9 }, callback: v => `$${v/1000}k` }
+        },
+        y1: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#6b7a99', font: { size: 9 }, callback: v => `$${v/1000}k` }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════════
+function renderAll() {
+  updateDataLabel();
+  renderKPIs();
+  renderTrend();
+  renderDonut();
+  renderTable();
+  renderRegionBars();
+  renderSubCat();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILTER LOGIC
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const type = pill.dataset.type;
+    const val  = pill.dataset.val;
+
+    // Update active pill in group
+    pill.closest('.filter-pills').querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+
+    state[type] = val;
+    renderAll();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+Chart.defaults.color = '#6b7a99';
+Chart.defaults.borderColor = '#1e2736';
+Chart.defaults.font.family = 'Outfit';
+
+renderAll();
+</script>
+</body>
+</html>
